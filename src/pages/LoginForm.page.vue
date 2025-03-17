@@ -1,10 +1,10 @@
 <template>
   <div class="login-form">
-    <div class="tabs">
+    <div class="tabs" v-if="!isAuthenticated">
       <button :class="{ active: isLogin }" @click="isLogin = true">Connexion</button>
       <button :class="{ active: !isLogin }" @click="isLogin = false">Inscription</button>
     </div>
-    <form @submit.prevent="handleSubmit">
+    <form v-if="!isAuthenticated" @submit.prevent="handleSubmit">
       <div>
         <label for="email">Email</label>
         <input type="email" id="email" v-model="email" placeholder="Entrez votre email" required />
@@ -17,34 +17,60 @@
         <label for="confirmPassword">Confirmer le mot de passe</label>
         <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="Confirmez votre mot de passe" required />
       </div>
+      <div v-if="errorMessage">
+        <p class="error">{{ errorMessage }}</p>
+      </div>
       <button type="submit">{{ isLogin ? 'Se connecter' : "S'inscrire" }}</button>
     </form>
-    <p>
-      <span v-if="isLogin">Pas de compte ? <a @click="isLogin = false">S'inscrire</a></span>
-      <span v-else>Déjà inscrit ? <a @click="isLogin = true">Se connecter</a></span>
-    </p>
+    <div v-else>
+      <p>Vous êtes connecté en tant que {{ email }}</p>
+      <button @click="handleLogout">Se déconnecter</button>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
+import { useAuthStore } from '../stores/login.store'; // Utilisation de useAuthStore
+
+const { register, login, logout, token } = useAuthStore();
 
 const isLogin = ref(true);
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
+const errorMessage = ref('');
+const isAuthenticated = ref(!!token);
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
+  console.log('Soumission du formulaire');
   if (!isLogin.value && password.value !== confirmPassword.value) {
     alert("Les mots de passe ne correspondent pas");
     return;
   }
-  // Logique de soumission du formulaire
-  console.log('Email:', email.value);
-  console.log('Password:', password.value);
-  if (!isLogin.value) {
-    console.log('Confirm Password:', confirmPassword.value);
+  try {
+    let success;
+    if (isLogin.value) {
+      console.log('Tentative de connexion avec:', email.value, password.value);
+      success = await login(email.value, password.value);
+    } else {
+      console.log('Tentative d\'inscription avec:', email.value, password.value);
+      success = await register(email.value, password.value);
+    }
+    if (success) {
+      isAuthenticated.value = true;
+    } else {
+      errorMessage.value = "Erreur lors de la soumission du formulaire";
+    }
+  } catch (error) {
+    console.error("Erreur lors de la soumission du formulaire:", error);
+    errorMessage.value = "Erreur lors de la soumission du formulaire";
   }
+};
+
+const handleLogout = () => {
+  logout();
+  isAuthenticated.value = false;
 };
 </script>
 
@@ -64,15 +90,17 @@ const handleSubmit = () => {
 }
 
 .tabs button {
-  background: none;
-  border: none;
+  background-color: #f0f0f0; /* Couleur de fond pour rendre les boutons visibles */
+  border: 1px solid #ccc; /* Ajout d'une bordure */
   padding: 0.5em 1em;
   cursor: pointer;
   font-size: 1em;
+  border-radius: 5px; /* Ajout de coins arrondis */
 }
 
 .tabs button.active {
-  border-bottom: 2px solid green;
+  background-color: green; /* Couleur de fond pour le bouton actif */
+  color: white; /* Couleur du texte pour le bouton actif */
 }
 
 form div {
@@ -109,5 +137,26 @@ button[type="submit"]:hover {
 p {
   text-align: center;
   margin-top: 1em;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-top: 1em;
+}
+
+button {
+  width: 100%;
+  padding: 0.5em;
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 1em; 
+}
+
+button:hover {
+  background-color: darkgreen;
 }
 </style>
